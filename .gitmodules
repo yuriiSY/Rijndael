@@ -1,3 +1,6 @@
 [submodule "py3rijndael"]
 	path = py3rijndael
 	url = https://github.com/meyt/py3rijndael.git
+[submodule "aes"]
+	path = aes
+	url = https://github.com/boppreh/aes
