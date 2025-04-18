@@ -30,6 +30,7 @@ int main() {
   unsigned char *recovered_plaintext = aes_decrypt_block(ciphertext, key);
 
   printf("############ ORIGINAL PLAINTEXT ###########\n");
+  
   print_128bit_block(plaintext);
 
   printf("\n\n################ CIPHERTEXT ###############\n");
