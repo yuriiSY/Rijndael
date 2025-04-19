@@ -9,7 +9,7 @@
 #include <string.h>
 #include "rijndael.h"
 
-// Substitution Box
+// This is the S-Box. It’s used to substitute bytes in AES encryption.
 const unsigned char sbox[256] = {
     0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
     0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0,
@@ -29,7 +29,7 @@ const unsigned char sbox[256] = {
     0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16
 };
 
-// Inverse S-Box
+// This is the inverse S-Box. It's used to reverse the substitution when decrypting.
 const unsigned char rsbox[256] = {
     0x52, 0x09, 0x6A, 0xD5, 0x30, 0x36, 0xA5, 0x38, 0xBF, 0x40, 0xA3, 0x9E, 0x81, 0xF3, 0xD7, 0xFB,
     0x7C, 0xE3, 0x39, 0x82, 0x9B, 0x2F, 0xFF, 0x87, 0x34, 0x8E, 0x43, 0x44, 0xC4, 0xDE, 0xE9, 0xCB,
@@ -49,12 +49,12 @@ const unsigned char rsbox[256] = {
     0x17, 0x2B, 0x04, 0x7E, 0xBA, 0x77, 0xD6, 0x26, 0xE1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0C, 0x7D
 };
 
-// Round constants
+// These are round constants used during the key expansion step.
 const unsigned char Rcon[11] = {
     0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36
 };
 
-
+// This function multiplies two numbers in GF(2^8).
 static unsigned char gf_mul(unsigned char a, unsigned char b) {
     unsigned char p = 0;
     for (int i = 0; i < 8; i++) {
@@ -70,12 +70,14 @@ static unsigned char gf_mul(unsigned char a, unsigned char b) {
 /*
  * Operations used when encrypting a block
  */
+// This replaces each byte in the block with a value from the S-box.
 void sub_bytes(unsigned char *block) {
     for (int i = 0; i < BLOCK_SIZE; i++) {
       block[i] = sbox[block[i]];
     }
 }
 
+// This shifts the rows of the block to the left, each by a different amount
 void shift_rows(unsigned char *block) {
     unsigned char temp;
     temp = block[1]; block[1] = block[5]; block[5] = block[9]; block[9] = block[13]; block[13] = temp;
@@ -84,6 +86,7 @@ void shift_rows(unsigned char *block) {
     temp = block[15]; block[15] = block[11]; block[11] = block[7]; block[7] = block[3]; block[3] = temp;
 }
 
+// This mixes the columns of the block to spread the bytes out.
 void mix_columns(unsigned char *block) {
     unsigned char tmp[4];
     for (int i = 0; i < 4; i++) {
@@ -101,12 +104,14 @@ void mix_columns(unsigned char *block) {
 /*
  * Operations used when decrypting a block
  */
+// This reverses the byte substitution using the inverse S-box
 void invert_sub_bytes(unsigned char *block) {
     for (int i = 0; i < BLOCK_SIZE; i++) {
       block[i] = rsbox[block[i]];
     }
 }
 
+// This undoes the row shifting from encryption by rotating in the opposite direction.
 void invert_shift_rows(unsigned char *block) {
     unsigned char temp;
     temp = block[13]; block[13] = block[9]; block[9] = block[5]; block[5] = block[1]; block[1] = temp;
@@ -115,6 +120,7 @@ void invert_shift_rows(unsigned char *block) {
     temp = block[3]; block[3] = block[7]; block[7] = block[11]; block[11] = block[15]; block[15] = temp;
 }
 
+// This undoes the column mixing from encryption using different constants.
 void invert_mix_columns(unsigned char *block) {
     unsigned char tmp[4];
     for (int i = 0; i < 4; i++) {
@@ -142,6 +148,11 @@ void add_round_key(unsigned char *block, unsigned char *round_key) {
  * This function should expand the round key. Given an input,
  * which is a single 128-bit key, it should return a 176-byte
  * vector, containing the 11 round keys one after the other
+ */
+
+/*
+ * This function creates all the round keys from the original key.
+ * AES needs 11 round keys, and this function generates them all.
  */
 void expand_key(unsigned char *cipher_key, unsigned char *round_keys) {
     unsigned char temp[4];
@@ -171,42 +182,56 @@ void expand_key(unsigned char *cipher_key, unsigned char *round_keys) {
  * header file should go here
  */
 unsigned char *aes_encrypt_block(unsigned char *plaintext, unsigned char *key) {
-    unsigned char state[BLOCK_SIZE];
-    unsigned char *output = malloc(BLOCK_SIZE);
-    unsigned char round_keys[BLOCK_SIZE * (NUM_ROUNDS + 1)];
-    memcpy(state, plaintext, BLOCK_SIZE);
-    expand_key((unsigned char*)key, round_keys);
-    add_round_key(state, round_keys);
+    unsigned char state[BLOCK_SIZE];  // Temporary block for processing
+    unsigned char *output = malloc(BLOCK_SIZE);  // Allocate space for encrypted output
+    unsigned char round_keys[BLOCK_SIZE * (NUM_ROUNDS + 1)];  // Expanded keys for all AES rounds
+
+    memcpy(state, plaintext, BLOCK_SIZE);  // Copy plaintext into state
+    expand_key((unsigned char*)key, round_keys);  // Generate round keys from the original key
+
+    add_round_key(state, round_keys);  // Initial round key addition (Round 0)
+
+    // Perform main AES rounds (Rounds 1 to 9 for AES-128)
     for (int round = 1; round < NUM_ROUNDS; round++) {
-        sub_bytes(state);
-        shift_rows(state);
-        mix_columns(state);
-        add_round_key(state, round_keys + round*BLOCK_SIZE);
+        sub_bytes(state);  // Apply S-box substitution to each byte
+        shift_rows(state);  // Shift each row of the state matrix
+        mix_columns(state);  // Mix each column using matrix multiplication
+        add_round_key(state, round_keys + round*BLOCK_SIZE);  // Add the round key
     }
-    sub_bytes(state);
-    shift_rows(state);
-    add_round_key(state, round_keys + NUM_ROUNDS*BLOCK_SIZE);
-    memcpy(output, state, BLOCK_SIZE);
-    return output;
+
+    // Final round (Round 10 for AES-128) - no MixColumns
+    sub_bytes(state);  // Final substitution
+    shift_rows(state);  // Final row shifting
+    add_round_key(state, round_keys + NUM_ROUNDS*BLOCK_SIZE);  // Add final round key
+
+    memcpy(output, state, BLOCK_SIZE);  // Copy the final state to output buffer
+    return output;  // Return pointer to the encrypted block
 }
 
 unsigned char *aes_decrypt_block(unsigned char *ciphertext, unsigned char *key) {
-    unsigned char state[BLOCK_SIZE];
-    unsigned char *output = malloc(BLOCK_SIZE);
-    unsigned char round_keys[BLOCK_SIZE * (NUM_ROUNDS + 1)];
-    memcpy(state, ciphertext, BLOCK_SIZE);
-    expand_key((unsigned char*)key, round_keys);
-    add_round_key(state, round_keys + NUM_ROUNDS*BLOCK_SIZE);
-  
+    unsigned char state[BLOCK_SIZE];  // Temporary block for processing
+    unsigned char *output = malloc(BLOCK_SIZE);  // Allocate space for decrypted output
+    unsigned char round_keys[BLOCK_SIZE * (NUM_ROUNDS + 1)];  // Expanded keys for all AES rounds
+
+    memcpy(state, ciphertext, BLOCK_SIZE);  // Copy ciphertext into state
+    expand_key((unsigned char*)key, round_keys);  // Generate round keys from the original key
+
+    add_round_key(state, round_keys + NUM_ROUNDS*BLOCK_SIZE);  // Start decryption with final round key
+
+    // Perform main AES rounds in reverse (Rounds 9 to 1)
     for (int round = NUM_ROUNDS - 1; round >= 1; round--) {
-        invert_shift_rows(state);
-        invert_sub_bytes(state);
-        add_round_key(state, round_keys + round*BLOCK_SIZE);
-        invert_mix_columns(state);
+        invert_shift_rows(state);  // Reverse the row shifting
+        invert_sub_bytes(state);  // Reverse the byte substitution
+        add_round_key(state, round_keys + round*BLOCK_SIZE);  // Add the corresponding round key
+        invert_mix_columns(state);  // Reverse the column mixing
     }
-    invert_shift_rows(state);
-    invert_sub_bytes(state);
-    add_round_key(state, round_keys);
-    memcpy(output, state, BLOCK_SIZE);
-    return output;
+
+    // Final decryption round (Round 0) - no invert_mix_columns
+    invert_shift_rows(state);  // Final reverse row shift
+    invert_sub_bytes(state);  // Final reverse substitution
+    add_round_key(state, round_keys);  // Add the original encryption key
+
+    memcpy(output, state, BLOCK_SIZE);  // Copy the final state to output buffer
+    return output;  // Return pointer to the decrypted block
 }
+
